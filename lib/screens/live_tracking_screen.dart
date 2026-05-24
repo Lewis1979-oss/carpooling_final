@@ -7,8 +7,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/ride_model.dart';
 import '../services/ride_service.dart';
+import '../services/auth_service.dart';
 import '../services/theme_service.dart';
 import '../services/map_service.dart';
 import '../services/safety_service.dart';
@@ -50,6 +52,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
   // High Risk Zone State
   final Set<String> _notifiedZones = {};
+
+  // For non-driver tracking
+  LatLng? _prevCarPos;
 
   @override
   void initState() {
@@ -314,7 +319,6 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
 
     // For non-driver, track movements to reset _lastMoveTime
     if (!widget.isDriver) {
-      static LatLng? _prevCarPos;
       if (_prevCarPos != null) {
         double distMoved = Geolocator.distanceBetween(
           _prevCarPos!.latitude, _prevCarPos!.longitude,

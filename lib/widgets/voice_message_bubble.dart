@@ -114,7 +114,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
             if (isPlaying) {
               await controller.pausePlayer();
             } else {
-              await controller.startPlayer(finishMode: FinishMode.pause);
+              await controller.startPlayer();
             }
           },
           icon: Icon(
