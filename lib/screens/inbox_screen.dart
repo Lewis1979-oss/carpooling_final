@@ -3,10 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
+import 'package:rxdart/rxdart.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
-import '../services/voice_call_service.dart';
+import '../services/chat_service.dart';
 import '../widgets/glass_widgets.dart';
+import 'chat_screen.dart';
 
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key});
@@ -18,226 +21,406 @@ class InboxScreen extends StatefulWidget {
 class _InboxScreenState extends State<InboxScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  final TextEditingController _searchController = TextEditingController();
+  
+  String _searchQuery = "";
+  String _filterType = "All"; // "All", "Unread Only", "Groups", "Individual"
 
   @override
-  Widget build(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context);
-    final isDark = themeService.isDarkMode;
-    final goldColor = themeService.goldAccent;
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
-    if (_currentUserId == null) {
-      return const Center(child: Text("Please log in to see your messages."));
-    }
+  Stream<List<ChatEntry>> _getCombinedChatsStream() {
+    if (_currentUserId == null) return Stream.value([]);
 
-    return DefaultTabController(
-      length: 2,
-      child: GlassScaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: Text("Inbox", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
-          bottom: TabBar(
-            indicatorColor: goldColor,
-            labelColor: goldColor,
-            unselectedLabelColor: isDark ? Colors.white70 : Colors.grey,
-            tabs: const [
-              Tab(text: "Messages"),
-              Tab(text: "Calls"),
-            ],
-          ),
-        ),
-        body: TabBarView(
+    // Stream 1: Private Chats
+    final privateChatsStream = _db.collection('private_chats')
+        .where('participants', arrayContains: _currentUserId)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) => ChatEntry.fromPrivateChat(doc, _currentUserId!)).toList());
+
+    // Stream 2: Group Chats (Where I am Driver)
+    final driverRidesStream = _db.collection('rides')
+        .where('driverId', isEqualTo: _currentUserId)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) => ChatEntry.fromRide(doc)).toList());
+
+    // Stream 3: Group Chats (Where I am Passenger)
+    final passengerRidesStream = _db.collection('rides')
+        .where('passengers', arrayContains: _currentUserId)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) => ChatEntry.fromRide(doc)).toList());
+
+    return CombineLatestStream.combine3(
+      privateChatsStream,
+      driverRidesStream,
+      passengerRidesStream,
+      (List<ChatEntry> private, List<ChatEntry> driver, List<ChatEntry> passenger) {
+        final all = [...private, ...driver, ...passenger];
+        
+        // Remove duplicates by ID (in case someone is both driver and passenger, though unlikely)
+        final Map<String, ChatEntry> uniqueChats = {};
+        for (var chat in all) {
+          uniqueChats[chat.id] = chat;
+        }
+
+        List<ChatEntry> list = uniqueChats.values.toList();
+        list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return list;
+      },
+    );
+  }
+
+  void _showFilterSheet(BuildContext context, Color gold, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GlassContainer(
+        isDark: isDark,
+        borderRadius: 25,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildMessageList(isDark, goldColor),
-            _buildCallList(isDark, goldColor),
+            const SizedBox(height: 12),
+            Container(
+              width: 40, height: 4, 
+              decoration: BoxDecoration(color: gold.withOpacity(0.3), borderRadius: BorderRadius.circular(2))
+            ),
+            const SizedBox(height: 20),
+            _buildFilterOption("All", Icons.all_inclusive, gold, isDark),
+            _buildFilterOption("Unread Only", Icons.mark_chat_unread_outlined, gold, isDark),
+            _buildFilterOption("Individual", Icons.person_outline, gold, isDark),
+            _buildFilterOption("Groups", Icons.group_outlined, gold, isDark),
+            const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMessageList(bool isDark, Color goldColor) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _db.collection('chats')
-          .where('participants', arrayContains: _currentUserId)
-          .orderBy('lastMessageTime', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyState("No messages yet", Icons.message_outlined, goldColor);
-        }
+  Widget _buildFilterOption(String type, IconData icon, Color gold, bool isDark) {
+    bool isSelected = _filterType == type;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? gold : Colors.grey),
+      title: Text(
+        type, 
+        style: TextStyle(
+          color: isSelected ? gold : (isDark ? Colors.white : Colors.black87), 
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+        )
+      ),
+      trailing: isSelected ? Icon(Icons.check_circle, color: gold, size: 20) : null,
+      onTap: () {
+        setState(() => _filterType = type);
+        Navigator.pop(context);
+      },
+    );
+  }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-            final participants = List<String>.from(data['participants'] ?? []);
-            final otherUserId = participants.firstWhere((id) => id != _currentUserId, orElse: () => '');
-            
-            return FutureBuilder<DocumentSnapshot>(
-              future: _db.collection('users').doc(otherUserId).get(),
-              builder: (context, userSnap) {
-                final otherUser = userSnap.data?.data() as Map<String, dynamic>?;
-                final name = otherUser?['name'] ?? 'Loading...';
-                final profilePic = otherUser?['profilePic'];
-                final lastMsg = data['lastMessage'] ?? '';
-                final time = data['lastMessageTime'] as Timestamp?;
-                final bool unread = data['unreadCount_$_currentUserId'] != null && data['unreadCount_$_currentUserId'] > 0;
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isDark = themeService.isDarkMode;
+    final goldColor = themeService.goldAccent;
+    final bodyColor = Theme.of(context).textTheme.bodyLarge?.color ?? (isDark ? Colors.white : Colors.black87);
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: GlassContainer(
-                    isDark: isDark,
-                    padding: const EdgeInsets.all(4),
-                    borderRadius: 20,
-                    containerOpacity: unread ? 0.15 : 0.05,
-                    child: ListTile(
-                      onTap: () {
-                        // Navigate to Chat
-                      },
-                      leading: CircleAvatar(
-                        radius: 25,
-                        backgroundColor: goldColor.withOpacity(0.1),
-                        backgroundImage: profilePic != null ? NetworkImage(profilePic) : null,
-                        child: profilePic == null ? Icon(Icons.person, color: goldColor) : null,
-                      ),
-                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: unread ? goldColor : Colors.grey)),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (time != null)
-                            Text(
-                              DateFormat('hh:mm a').format(time.toDate()),
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
-                            ),
-                          if (unread)
-                            Container(
-                              margin: const EdgeInsets.only(top: 4),
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(color: goldColor, shape: BoxShape.circle),
-                              child: Text(
-                                data['unreadCount_$_currentUserId'].toString(),
-                                style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
+    if (_currentUserId == null) {
+      return const Center(child: Text("Please log in to see your messages."));
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          _buildHeader(isDark, goldColor, bodyColor),
+          Expanded(
+            child: StreamBuilder<List<ChatEntry>>(
+              stream: _getCombinedChatsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                var chats = snapshot.data ?? [];
+
+                // Filter by type first
+                if (_filterType == "Unread Only") {
+                  chats = chats.where((c) => c.unreadCount > 0).toList();
+                } else if (_filterType == "Groups") {
+                  chats = chats.where((c) => c.isGroup).toList();
+                } else if (_filterType == "Individual") {
+                  chats = chats.where((c) => !c.isGroup).toList();
+                }
+
+                // Search filtering logic with FutureBuilder for usernames
+                return _buildFilteredListView(chats, isDark, goldColor);
               },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildCallList(bool isDark, Color goldColor) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _db.collection('calls')
-          .where('participants', arrayContains: _currentUserId)
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyState("No recent calls", Icons.call_outlined, goldColor);
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-            final type = data['type'] ?? 'incoming'; 
-            final otherName = data['otherName'] ?? 'Unknown';
-            final otherPic = data['otherPic'];
-            final otherId = data['otherId'];
-            final bool isRead = data['isRead'] ?? true;
-            final bool isMissed = type == 'missed';
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: GlassContainer(
-                isDark: isDark,
-                padding: const EdgeInsets.all(4),
-                borderRadius: 20,
-                containerOpacity: (isMissed && !isRead) ? 0.2 : 0.05,
-                accentColor: (isMissed && !isRead) ? Colors.redAccent : null,
-                child: ListTile(
-                  onTap: () async {
-                    final callService = Provider.of<VoiceCallService>(context, listen: false);
-                    if (!isRead) {
-                      await callService.markCallAsRead(doc.id);
-                    }
-                    if (otherId != null) {
-                      final otherUser = await AuthService().getUserData(otherId);
-                      if (otherUser != null) {
-                        callService.makeCall(receiver: otherUser);
-                      }
-                    }
-                  },
-                  onLongPress: () => _confirmDeleteCall(doc.id),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    radius: 25,
-                    backgroundColor: goldColor.withOpacity(0.1),
-                    backgroundImage: otherPic != null ? NetworkImage(otherPic) : null,
-                    child: otherPic == null ? Icon(Icons.person, color: goldColor) : null,
-                  ),
-                  title: Text(otherName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Row(
-                    children: [
-                      Icon(
-                        isMissed ? Icons.call_missed : (type == 'outgoing' ? Icons.call_made : Icons.call_received),
-                        size: 14,
-                        color: isMissed ? Colors.redAccent : Colors.green,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        DateFormat('MMM d, hh:mm a').format((data['timestamp'] as Timestamp).toDate()),
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  trailing: Icon(Icons.call, color: goldColor, size: 20),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _confirmDeleteCall(String callId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Call Log?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () async {
-              await _db.collection('calls').doc(callId).delete();
-              Navigator.pop(context);
-            }, 
-            child: const Text("Delete", style: TextStyle(color: Colors.red))
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildFilteredListView(List<ChatEntry> allChats, bool isDark, Color gold) {
+    // If no search query, render normally
+    if (_searchQuery.isEmpty) {
+      if (allChats.isEmpty) return _buildEmptyState("No messages yet", Icons.message_outlined, gold);
+      return _renderList(allChats, isDark, gold);
+    }
+
+    // With search query, we need to filter. 
+    final filtered = allChats.where((chat) {
+      final query = _searchQuery.toLowerCase();
+      final lastMsg = chat.lastMessage.toLowerCase();
+      final name = chat.displayName.toLowerCase();
+      return lastMsg.contains(query) || name.contains(query);
+    }).toList();
+
+    if (filtered.isEmpty) return _buildEmptyState("No results found", Icons.search_off_rounded, gold);
+
+    return _renderList(filtered, isDark, gold);
+  }
+
+  Widget _renderList(List<ChatEntry> chats, bool isDark, Color gold) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      itemCount: chats.length + 1,
+      physics: const BouncingScrollPhysics(),
+      itemBuilder: (context, index) {
+        if (index == chats.length) return _buildFooter(gold);
+        return _buildChatTile(chats[index], isDark, gold);
+      },
+    );
+  }
+
+  Widget _buildHeader(bool isDark, Color gold, Color bodyColor) {
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final appBarHeight = kToolbarHeight;
+    final topPadding = statusBarHeight + appBarHeight + 4.0; // 4px breathing room
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Messages",
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: bodyColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Your conversations",
+            style: TextStyle(
+              fontSize: 15,
+              color: bodyColor.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: GlassContainer(
+                  isDark: isDark,
+                  borderRadius: 15,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  containerOpacity: 0.1,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: "Search messages...",
+                      hintStyle: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 14),
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search, color: Colors.grey.withOpacity(0.7), size: 20),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => _showFilterSheet(context, gold, isDark),
+                child: GlassContainer(
+                  isDark: isDark,
+                  borderRadius: 15,
+                  padding: const EdgeInsets.all(12),
+                  containerOpacity: 0.1,
+                  child: Icon(Icons.tune, color: gold, size: 20),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatTile(ChatEntry chat, bool isDark, Color gold) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: chat.isGroup ? Future.value(null) : AuthService().getUserData(chat.otherUserId!),
+      builder: (context, userSnap) {
+        final otherUser = userSnap.data;
+        final String name = chat.isGroup ? chat.displayName : (otherUser?['name'] ?? 'Loading...');
+        final String? pic = chat.isGroup ? chat.displayPic : otherUser?['profilePic'];
+        final bool isOnline = !chat.isGroup && (otherUser?['isOnline'] ?? false);
+
+        // If searching, check if name matches if the message didn't
+        if (_searchQuery.isNotEmpty) {
+          final query = _searchQuery.toLowerCase();
+          if (!name.toLowerCase().contains(query) && !chat.lastMessage.toLowerCase().contains(query)) {
+            return const SizedBox.shrink();
+          }
+        }
+
+        final bool isEmpty = chat.lastMessage == 'No messages yet';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: GlassContainer(
+            isDark: isDark,
+            padding: const EdgeInsets.all(4),
+            borderRadius: 20,
+            containerOpacity: chat.unreadCount > 0 ? 0.15 : 0.05,
+            child: ListTile(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      rideId: chat.isGroup ? chat.id : (chat.rideId ?? ""),
+                      destinationName: chat.isGroup ? name : "Private Chat",
+                      privateChatId: chat.isGroup ? null : chat.id,
+                      otherUserName: chat.isGroup ? null : name,
+                      otherUserPhotoUrl: chat.isGroup ? null : pic,
+                    ),
+                  ),
+                );
+              },
+              leading: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: gold.withOpacity(0.1),
+                    backgroundImage: pic != null ? NetworkImage(pic) : null,
+                    child: pic == null ? Icon(chat.isGroup ? Icons.group : Icons.person, color: gold, size: 28) : null,
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      right: 2, bottom: 2,
+                      child: Container(
+                        width: 12, height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              title: Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: isEmpty 
+                  ? Center(
+                      child: Text(
+                        chat.lastMessage,
+                        style: const TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
+                      ),
+                    )
+                  : RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: TextStyle(
+                          color: chat.unreadCount > 0 ? (isDark ? Colors.white : Colors.black87) : Colors.grey,
+                          fontSize: 13,
+                        ),
+                        children: _buildSubtitleSpans(chat, isDark),
+                      ),
+                    ),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _formatTime(chat.timestamp),
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  if (chat.unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(color: Color(0xFF64D2D2), shape: BoxShape.circle),
+                      child: Text(
+                        chat.unreadCount.toString(),
+                        style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<TextSpan> _buildSubtitleSpans(ChatEntry chat, bool isDark) {
+    final String lastMsg = chat.lastMessage;
+    final bool isUnread = chat.unreadCount > 0;
+    final fontWeight = isUnread ? FontWeight.w600 : FontWeight.normal;
+
+    if (chat.isGroup) {
+      if (lastMsg.contains(': ')) {
+        final parts = lastMsg.split(': ');
+        return [
+          TextSpan(text: '${parts[0]}: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: parts.sublist(1).join(': '), style: TextStyle(fontWeight: fontWeight)),
+        ];
+      }
+      return [TextSpan(text: lastMsg, style: TextStyle(fontWeight: fontWeight))];
+    } else {
+      // Private Chat
+      if (chat.lastSenderId == _currentUserId) {
+        return [
+          const TextSpan(text: 'You: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          TextSpan(text: lastMsg, style: TextStyle(fontWeight: fontWeight)),
+        ];
+      }
+      return [TextSpan(text: lastMsg, style: TextStyle(fontWeight: fontWeight))];
+    }
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time).inDays;
+
+    if (time.day == now.day && time.month == now.month && time.year == now.year) {
+      return DateFormat('hh:mm a').format(time);
+    } else if (difference == 0 && time.day != now.day) {
+      // Handle edge case for late night yesterday vs early morning today
+      return "Yesterday";
+    } else if (time.day == now.day - 1 && time.month == now.month && time.year == now.year) {
+      return "Yesterday";
+    } else if (difference < 7) {
+      return DateFormat('EEE').format(time); // Mon, Tue, etc.
+    } else {
+      return DateFormat('MMM d').format(time);
+    }
   }
 
   Widget _buildEmptyState(String title, IconData icon, Color gold) {
@@ -247,9 +430,79 @@ class _InboxScreenState extends State<InboxScreen> {
         children: [
           Icon(icon, size: 60, color: gold.withOpacity(0.2)),
           const SizedBox(height: 16),
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500)),
         ],
       ),
+    );
+  }
+
+  Widget _buildFooter(Color gold) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Text(
+          "No more messages",
+          style: TextStyle(color: Colors.grey.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+class ChatEntry {
+  final String id;
+  final String lastMessage;
+  final DateTime timestamp;
+  final bool isGroup;
+  final String displayName;
+  final String? displayPic;
+  final int unreadCount;
+  final String? otherUserId;
+  final String? rideId;
+  final String? lastSenderId;
+
+  ChatEntry({
+    required this.id,
+    required this.lastMessage,
+    required this.timestamp,
+    required this.isGroup,
+    required this.displayName,
+    this.displayPic,
+    required this.unreadCount,
+    this.otherUserId,
+    this.rideId,
+    this.lastSenderId,
+  });
+
+  factory ChatEntry.fromPrivateChat(DocumentSnapshot doc, String currentUserId) {
+    final data = doc.data() as Map<String, dynamic>;
+    final participants = List<String>.from(data['participants'] ?? []);
+    final otherId = participants.firstWhere((id) => id != currentUserId, orElse: () => '');
+    
+    return ChatEntry(
+      id: doc.id,
+      lastMessage: data['lastMessage'] ?? '',
+      timestamp: (data['lastTimestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isGroup: false,
+      displayName: "", 
+      unreadCount: data['unreadCount_$currentUserId'] ?? 0,
+      otherUserId: otherId,
+      rideId: data['rideId'],
+      lastSenderId: data['lastSenderId'],
+    );
+  }
+
+  factory ChatEntry.fromRide(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ChatEntry(
+      id: doc.id,
+      lastMessage: data['lastMessage'] ?? 'No messages yet',
+      timestamp: (data['lastTimestamp'] as Timestamp?)?.toDate() ?? (data['dateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isGroup: true,
+      displayName: data['destination'] ?? 'Group Ride',
+      displayPic: null,
+      unreadCount: 0,
+      lastSenderId: data['lastSenderId'],
     );
   }
 }

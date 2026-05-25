@@ -48,15 +48,9 @@ class MyRidesScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           toolbarHeight: 80,
-          leading: Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: IconButton(
-              icon: Icon(Icons.arrow_back_ios, color: activeGold, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+          automaticallyImplyLeading: false,
           title: Padding(
-            padding: const EdgeInsets.only(top: 20),
+            padding: const EdgeInsets.only(top: 20, left: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -138,26 +132,11 @@ class MyRidesScreen extends StatelessWidget {
         });
 
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 10),
           physics: const BouncingScrollPhysics(),
-          itemCount: filteredRides.length + 1,
+          itemCount: filteredRides.length,
           itemBuilder: (context, index) {
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 20, top: 10),
-                child: Text(
-                  sectionTitle,
-                  style: TextStyle(
-                    color: Colors.tealAccent.withOpacity(0.7),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              );
-            }
-            
-            final ride = filteredRides[index - 1];
+            final ride = filteredRides[index];
             return FutureBuilder<UserModel?>(
               future: authService.getUserData(ride.driverId),
               builder: (context, driverSnap) {

@@ -38,6 +38,7 @@ class ChatService {
       
       await _db.collection('rides').doc(rideId).update({
         'lastMessage': '${message.senderName}: $displayMsg',
+        'lastSenderId': message.senderId,
         'lastTimestamp': Timestamp.fromDate(message.timestamp),
       });
 
@@ -84,6 +85,7 @@ class ChatService {
       
       Map<String, dynamic> updateData = {
         'lastMessage': displayMsg,
+        'lastSenderId': message.senderId,
         'lastTimestamp': Timestamp.fromDate(message.timestamp),
         'participants': chatId.split('_'),
       };

@@ -9,11 +9,9 @@ import '../models/user_model.dart';
 import '../services/ride_service.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
-import '../services/safety_trigger_service.dart';
 import '../widgets/glass_widgets.dart';
 import 'post_ride_screen.dart';
 import 'ride_details_screen.dart';
-import 'browse_rides_map_screen.dart';
 import 'search_screen.dart';
 import 'profile_screen.dart';
 
@@ -30,44 +28,6 @@ class HomeScreen extends StatelessWidget {
     this.postRideKey, 
     this.fabKey
   });
-
-  void _showSOSDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('EMERGENCY SOS', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: const Text(
-          'Are you in immediate danger? This will notify the ZedPool admin and your emergency contacts with your live location.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              SafetyTriggerService().triggerSOS("User manually triggered SOS from Home Screen");
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("SOS Alert Sent! Help is on the way."),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('YES, SEND SOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,40 +59,7 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 60),
-                
-                // 1. Top Bar Navigation (Matches Screenshot)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Icon(Icons.menu, color: goldColor, size: 28),
-                      const SizedBox(width: 15),
-                      RichText(
-                        text: TextSpan(
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: themeService.fontFamily),
-                          children: [
-                            TextSpan(text: 'ZedPool ', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-                            const TextSpan(text: 'Premium', style: TextStyle(color: Colors.blueAccent)),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      PremiumSOSButton(onTap: () => _showSOSDialog(context)),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: goldColor.withOpacity(0.3)),
-                        ),
-                        child: Icon(Icons.wb_sunny_outlined, color: goldColor, size: 20),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
+                const SizedBox(height: 108),
 
                 // 2. Header: Greeting, Name!
                 Padding(
@@ -201,12 +128,12 @@ class HomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
-                // 3. Action Box (Matches Screenshot Layout)
+                // 3. Action Box (Compact Layout with Fixed Measurements)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GlassContainer(
                     isDark: isDark,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.only(top: 2, bottom: 2, left: 10, right: 10),
                     borderRadius: 30,
                     containerOpacity: isDark ? 0.05 : 0.4,
                     blur: 0, 
@@ -224,40 +151,37 @@ class HomeScreen extends StatelessWidget {
                             ]
                           ),
                         ),
-                        const SizedBox(height: 15),
-                        // Car Image Widget (Moved from background to here)
+                        const SizedBox(height: 1),
+                        // Car Image Widget
                         Image.asset(
                           'assets/images/vehicle_bg.png',
-                          height: 140,
+                          height: 125,
                           fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 1),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Expanded(
-                              child: _buildActionTile(
-                                key: bookRideKey,
-                                icon: Icons.map,
-                                label: 'Book Ride',
-                                subLabel: 'Find on map',
-                                accentColor: goldColor,
-                                isDark: isDark,
-                                isTeal: isTealTheme,
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
-                              ),
+                            _buildActionTile(
+                              key: bookRideKey,
+                              icon: Icons.map,
+                              label: 'Book Ride',
+                              subLabel: 'Find on map',
+                              accentColor: goldColor,
+                              isDark: isDark,
+                              isTeal: isTealTheme,
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
                             ),
                             const SizedBox(width: 15),
-                            Expanded(
-                              child: _buildActionTile(
-                                key: postRideKey,
-                                icon: Icons.add_location_alt,
-                                label: 'Post Ride',
-                                subLabel: 'Share route',
-                                accentColor: goldColor,
-                                isDark: isDark,
-                                isTeal: isTealTheme,
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PostRideScreen())),
-                              ),
+                            _buildActionTile(
+                              key: postRideKey,
+                              icon: Icons.add_location_alt,
+                              label: 'Post Ride',
+                              subLabel: 'Share route',
+                              accentColor: goldColor,
+                              isDark: isDark,
+                              isTeal: isTealTheme,
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PostRideScreen())),
                             ),
                           ],
                         ),
@@ -366,35 +290,41 @@ class HomeScreen extends StatelessWidget {
       key: key,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        width: 130,
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(15),
           border: Border.all(color: accentColor.withOpacity(0.2), width: 1),
         ),
         child: Row(
           children: [
-            Icon(icon, color: accentColor, size: 24),
+            Icon(icon, color: accentColor, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     label, 
                     style: TextStyle(
                       fontWeight: FontWeight.bold, 
-                      fontSize: 14, 
+                      fontSize: 12, 
                       color: isDark ? Colors.white : Colors.black87,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     subLabel, 
                     style: TextStyle(
-                      fontSize: 10, 
+                      fontSize: 9, 
                       color: isDark ? Colors.white60 : Colors.grey,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

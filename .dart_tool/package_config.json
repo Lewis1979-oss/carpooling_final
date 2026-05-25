@@ -800,6 +800,12 @@
       "languageVersion": "3.5"
     },
     {
+      "name": "rxdart",
+      "rootUri": "file:///C:/Users/lewis/AppData/Local/Pub/Cache/hosted/pub.dev/rxdart-0.27.7",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "sensors_plus",
       "rootUri": "file:///C:/Users/lewis/AppData/Local/Pub/Cache/hosted/pub.dev/sensors_plus-6.1.2",
       "packageUri": "lib/",

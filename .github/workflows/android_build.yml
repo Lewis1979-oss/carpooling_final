@@ -27,23 +27,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Search and Destroy Corrupted Files
+      - name: Clean and Prepare
         run: |
-          # 1. Delete EVERY 0-byte file in the android folder (these crash the build)
           find android -type f -size 0 -delete
-          
-          # 2. Delete the specific old icon files that keep causing errors
           find android/app/src/main/res -name "launcher_icon.*" -delete
-          
-          # 3. Regenerate all icons and splash screens fresh from your valid assets
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK and Bundle
+        run: |
+          # --split-per-abi reduces the size of individual APKs significantly
+          flutter build apk --release --split-per-abi
+          flutter build appbundle --release
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: release-apks
+          path: build/app/outputs/flutter-apk/*.apk
+
+      - name: Upload Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle
+          path: build/app/outputs/bundle/release/app-release.aab
