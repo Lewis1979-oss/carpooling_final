@@ -8,6 +8,7 @@ import 'package:rxdart/rxdart.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
 import '../services/chat_service.dart';
+import '../models/user_model.dart';
 import '../widgets/glass_widgets.dart';
 import 'chat_screen.dart';
 
@@ -264,13 +265,13 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Widget _buildChatTile(ChatEntry chat, bool isDark, Color gold) {
-    return FutureBuilder<Map<String, dynamic>?>(
+    return FutureBuilder<UserModel?>(
       future: chat.isGroup ? Future.value(null) : AuthService().getUserData(chat.otherUserId!),
       builder: (context, userSnap) {
         final otherUser = userSnap.data;
-        final String name = chat.isGroup ? chat.displayName : (otherUser?['name'] ?? 'Loading...');
-        final String? pic = chat.isGroup ? chat.displayPic : otherUser?['profilePic'];
-        final bool isOnline = !chat.isGroup && (otherUser?['isOnline'] ?? false);
+        final String name = chat.isGroup ? chat.displayName : (otherUser?.name ?? 'Loading...');
+        final String? pic = chat.isGroup ? chat.displayPic : otherUser?.profilePic;
+        final bool isOnline = !chat.isGroup && (otherUser?.isOnline ?? false);
 
         // If searching, check if name matches if the message didn't
         if (_searchQuery.isNotEmpty) {

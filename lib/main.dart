@@ -531,7 +531,6 @@ class _MainNavigationState extends State<MainNavigation> {
 
   void _showSOSDialog(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
-you to edit only what i ask you to, then before you make changes do a flipped interaction where you ask me questions so that you can get a clear picture of what i want you to edit
     if (user == null) return;
 
     bool? confirm = await showDialog<bool>(
