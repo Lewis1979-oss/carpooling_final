@@ -35,6 +35,9 @@ class UserModel {
   // Admin Management Fields
   final bool isBlocked;
   final DateTime? createdAt;
+  
+  // Payment Verification Field
+  final bool verificationFeePaid;
 
   UserModel({
     required this.id,
@@ -65,6 +68,7 @@ class UserModel {
     this.lastSeen,
     this.isBlocked = false,
     this.createdAt,
+    this.verificationFeePaid = false,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> data, String documentId) {
@@ -97,6 +101,7 @@ class UserModel {
       lastSeen: data['lastSeen'] != null ? (data['lastSeen'] as Timestamp).toDate() : null,
       isBlocked: data['isBlocked'] ?? false,
       createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : null,
+      verificationFeePaid: data['verificationFeePaid'] ?? false,
     );
   }
 
@@ -129,6 +134,7 @@ class UserModel {
       'lastSeen': lastSeen != null ? Timestamp.fromDate(lastSeen!) : null,
       'isBlocked': isBlocked,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'verificationFeePaid': verificationFeePaid,
     };
   }
 }

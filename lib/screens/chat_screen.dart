@@ -18,6 +18,7 @@ import '../services/theme_service.dart';
 import '../services/voice_call_service.dart';
 import '../widgets/glass_widgets.dart';
 import '../widgets/chat_widgets.dart';
+import '../widgets/call_choice_dialog.dart';
 import 'voice_call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class ChatScreen extends StatefulWidget {
   final String? privateChatId;
   final String? otherUserName;
   final String? otherUserPhotoUrl;
+  final bool isWithAdmin;
 
   const ChatScreen({
     super.key,
@@ -34,6 +36,7 @@ class ChatScreen extends StatefulWidget {
     this.privateChatId,
     this.otherUserName,
     this.otherUserPhotoUrl,
+    this.isWithAdmin = false,
   });
 
   @override
@@ -86,7 +89,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final otherId = widget.privateChatId!.replaceFirst(_currentUserId!, '').replaceFirst('_', '');
       _chatService.sendPrivateMessage(widget.privateChatId!, message, otherId);
     } else {
-      _chatService.sendGroupMessage(widget.rideId, message);
+      _chatService.sendMessage(widget.rideId, message);
     }
 
     _messageController.clear();
@@ -249,9 +252,11 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               Expanded(
                 child: StreamBuilder<List<MessageModel>>(
-                  stream: widget.privateChatId != null 
-                    ? _chatService.getPrivateMessages(widget.privateChatId!)
-                    : _chatService.getGroupMessages(widget.rideId),
+                  stream: _currentUserId == null 
+                    ? Stream.value([]) 
+                    : (widget.privateChatId != null 
+                        ? _chatService.getPrivateMessages(widget.privateChatId!, _currentUserId!)
+                        : _chatService.getMessages(widget.rideId, _currentUserId!)),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -260,6 +265,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     
                     return ListView.builder(
                       controller: _scrollController,
+                      reverse: true,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
@@ -303,7 +309,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       noRecents: const Text('No Recents', style: TextStyle(fontSize: 20, color: Colors.black26), textAlign: TextAlign.center),
                       loadingIndicator: const SizedBox.shrink(),
                       tabBarIndicatorSize: TabBarIndicatorSize.label,
-                      categoryIcons: const CategoryIcons(),
+                      categoryIcons: CategoryIcons(),
                       buttonMode: ButtonMode.MATERIAL,
                     ),
                   ),

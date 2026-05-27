@@ -37,8 +37,6 @@ class AdminUserActionDialog extends StatelessWidget {
       builder: (context, snapshot) {
         final reports = snapshot.data ?? [];
         
-        // Flag user if they reported an SOS (In Danger) 
-        // OR if they were reported by someone else (Offender)
         final bool isReportingSOS = reports.any((r) => r.reporterId == user.id && r.isSOS);
         final bool isReportedByOthers = reports.any((r) => r.reportedUserId == user.id);
         
@@ -60,7 +58,6 @@ class AdminUserActionDialog extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // --- MINI PROFILE SECTION ---
                   _buildProfileHeader(statusColor, isReportingSOS, isReportedByOthers),
                   const SizedBox(height: 16),
                   Text(
@@ -72,13 +69,39 @@ class AdminUserActionDialog extends StatelessWidget {
                       letterSpacing: 0.5
                     ),
                   ),
-                  Text(
-                    user.email,
-                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13),
+                  
+                  // Verification Fee Badge
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: user.verificationFeePaid ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: user.verificationFeePaid ? Colors.green : Colors.orange, width: 0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          user.verificationFeePaid ? Icons.check_circle_outline : Icons.pending_outlined, 
+                          color: user.verificationFeePaid ? Colors.green : Colors.orange, 
+                          size: 14
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          user.verificationFeePaid ? "Verification Fee Paid" : "Fee Not Paid",
+                          style: TextStyle(
+                            color: user.verificationFeePaid ? Colors.green : Colors.orange, 
+                            fontSize: 10, 
+                            fontWeight: FontWeight.bold
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+
                   const SizedBox(height: 24),
 
-                  // Stats Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -89,7 +112,6 @@ class AdminUserActionDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // --- ACTIONS SECTION ---
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(

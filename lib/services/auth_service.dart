@@ -121,6 +121,7 @@ class AuthService {
     required String userName,
     File? licenseImage,
     File? vehicleImage,
+    bool feePaid = false,
   }) async {
     try {
       String? licenseUrl;
@@ -152,6 +153,8 @@ class AuthService {
           }
         }
       }
+      
+      updates['verificationFeePaid'] = feePaid;
 
       if (updates.isNotEmpty) {
         await _db.collection('users').doc(uid).update(updates);
@@ -162,6 +165,8 @@ class AuthService {
           final adminId = adminSnapshot.docs.first.id;
           final chatService = ChatService();
           final chatId = chatService.getPrivateChatId(uid, adminId);
+          
+          String paymentStatusText = feePaid ? "✅ Verification Fee (K50) Paid" : "⚠️ Fee Not Detected";
 
           if (licenseUrl != null) {
             await chatService.sendPrivateMessage(
@@ -170,7 +175,7 @@ class AuthService {
                 id: '',
                 senderId: uid,
                 senderName: userName,
-                text: 'Driver License Verification Request',
+                text: 'Driver License Verification Request\n$paymentStatusText',
                 timestamp: DateTime.now(),
                 imageUrl: licenseUrl,
                 isImage: true,
@@ -186,7 +191,7 @@ class AuthService {
                 id: '',
                 senderId: uid,
                 senderName: userName,
-                text: 'Vehicle Verification Request',
+                text: 'Vehicle Verification Request\n$paymentStatusText',
                 timestamp: DateTime.now(),
                 imageUrl: vehicleUrl,
                 isImage: true,
@@ -242,6 +247,7 @@ class AuthService {
           'notificationsEnabled': true,
           'isOnline': true,
           'lastSeen': FieldValue.serverTimestamp(),
+          'verificationFeePaid': false,
         });
       }
       return result;
@@ -302,6 +308,7 @@ class AuthService {
             'notificationsEnabled': true,
             'isOnline': true,
             'lastSeen': FieldValue.serverTimestamp(),
+            'verificationFeePaid': false,
           });
         } else {
           await updateUserPresence(true);
@@ -358,6 +365,7 @@ class AuthService {
             'notificationsEnabled': true,
             'isOnline': true,
             'lastSeen': FieldValue.serverTimestamp(),
+            'verificationFeePaid': false,
           });
         } else {
           await updateUserPresence(true);

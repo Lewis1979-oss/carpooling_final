@@ -28,7 +28,6 @@ class ChatService {
   // Send a group message
   Future<void> sendMessage(String rideId, MessageModel message) async {
     try {
-      // Create message with 'delivered' status as it hits the database
       final msgMap = message.toMap();
       msgMap['status'] = MessageStatus.delivered.name;
 
@@ -65,6 +64,43 @@ class ChatService {
     }
   }
 
+  // Compatibility for older calls
+  Future<void> sendGroupMessage(String rideId, MessageModel message) => sendMessage(rideId, message);
+
+  // Send Image to Group
+  Future<void> sendGroupImage(String rideId, File file, String senderId, String senderName) async {
+    String? imageUrl = await uploadFile(file.path, 'chat_images');
+    if (imageUrl != null) {
+      final message = MessageModel(
+        id: '',
+        senderId: senderId,
+        senderName: senderName,
+        text: '',
+        imageUrl: imageUrl,
+        isImage: true,
+        timestamp: DateTime.now(),
+      );
+      await sendMessage(rideId, message);
+    }
+  }
+
+  // Send Image Privately
+  Future<void> sendPrivateImage(String chatId, File file, String senderId, String senderName, String recipientId) async {
+    String? imageUrl = await uploadFile(file.path, 'chat_images');
+    if (imageUrl != null) {
+      final message = MessageModel(
+        id: '',
+        senderId: senderId,
+        senderName: senderName,
+        text: '',
+        imageUrl: imageUrl,
+        isImage: true,
+        timestamp: DateTime.now(),
+      );
+      await sendPrivateMessage(chatId, message, recipientId);
+    }
+  }
+
   // Generate a unique ID for a private chat between two users
   String getPrivateChatId(String uid1, String uid2) {
     List<String> ids = [uid1, uid2];
@@ -75,7 +111,6 @@ class ChatService {
   // Send a private message
   Future<void> sendPrivateMessage(String chatId, MessageModel message, String recipientId, {String? rideId}) async {
     try {
-      // Create message with 'delivered' status as it hits the database
       final msgMap = message.toMap();
       msgMap['status'] = MessageStatus.delivered.name;
 
@@ -135,6 +170,8 @@ class ChatService {
     }
   }
 
+  Future<void> markPrivateMessagesAsRead(String chatId, String userId) => markMessagesAsRead(null, chatId, userId);
+
   Stream<List<MessageModel>> getMessages(String rideId, String userId) {
     return _db.collection('rides').doc(rideId).collection('messages')
         .orderBy('timestamp', descending: true)
@@ -152,6 +189,8 @@ class ChatService {
             .toList();
         });
   }
+
+  Stream<List<MessageModel>> getGroupMessages(String rideId, String userId) => getMessages(rideId, userId);
 
   Stream<List<MessageModel>> getPrivateMessages(String chatId, String userId) {
     return _db.collection('private_chats').doc(chatId).collection('messages')

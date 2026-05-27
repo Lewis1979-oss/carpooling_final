@@ -2,14 +2,17 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
 import '../services/error_service.dart';
+import '../services/payment_service.dart';
 import '../widgets/glass_widgets.dart';
 import '../widgets/image_picker_sheet.dart';
+import 'payment_screen.dart';
 
 class AccountSettingsScreen extends StatefulWidget {
   final UserModel userData;
@@ -35,6 +38,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   File? _selectedVehicleImage;
   
   bool _isLoading = false;
+  late bool _verificationFeePaid;
   
   // Privacy & Security States
   late bool _hidePhoneNumber;
@@ -56,15 +60,102 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     _hidePhoneNumber = widget.userData.hidePhoneNumber;
     _biometricEnabled = widget.userData.biometricEnabled;
     _notificationsEnabled = widget.userData.notificationsEnabled;
+    _verificationFeePaid = widget.userData.verificationFeePaid;
   }
 
   void _showImageSourceAction(String type) {
+    // If trying to verify documents and fee not paid, show payment dialog first
+    if ((type == 'license' || type == 'vehicle') && !_verificationFeePaid) {
+      _showPaymentRequirementDialog(type);
+      return;
+    }
+
     final themeService = Provider.of<ThemeService>(context, listen: false);
     ImagePickerSheet.show(
       context,
       gold: themeService.goldAccent,
       isDark: themeService.isDarkMode,
       onSourceSelected: (source) => _pickImage(type, source),
+    );
+  }
+
+  void _showPaymentRequirementDialog(String type) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final gold = themeService.goldAccent;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.transparent,
+        contentPadding: EdgeInsets.zero,
+        content: GlassContainer(
+          isDark: isDark,
+          borderRadius: 25,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.verified_user, color: Colors.blue, size: 50),
+              const SizedBox(height: 20),
+              const Text(
+                "ID Verification Fee",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "For verification of IDs and vehicle documents, a one-time processing fee of K50 has to be paid.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 30),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Not Now", style: TextStyle(color: Colors.grey)),
+                    ),
+                  ),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openPaymentScreen(type);
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: gold),
+                      child: const Text("PAY K50", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openPaymentScreen(String type) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentScreen(
+          amount: 50.0,
+          onPaymentSuccess: () async {
+            // Update Firestore
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            if (uid != null) {
+              await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                'verificationFeePaid': true,
+              });
+              setState(() => _verificationFeePaid = true);
+              // Now allow picking the image
+              _showImageSourceAction(type);
+            }
+          },
+        ),
+      ),
     );
   }
 
@@ -88,6 +179,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       return;
     }
 
+    if (!_verificationFeePaid) {
+      _showPaymentRequirementDialog('submit');
+      return;
+    }
+
     setState(() => _isLoading = true);
     final authService = AuthService();
     final user = FirebaseAuth.instance.currentUser;
@@ -98,6 +194,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         userName: _nameController.text,
         licenseImage: _selectedLicenseImage,
         vehicleImage: _selectedVehicleImage,
+        feePaid: _verificationFeePaid,
       );
 
       if (mounted) {
