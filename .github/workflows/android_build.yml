@@ -20,26 +20,24 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Disable Flutter Gradle upgrader
-        run: |
-          UPGRADER=$(find $FLUTTER_ROOT -name "gradle_utils.dart" | head -1)
-          echo "Found: $UPGRADER"
-          sed -i 's/void upgradeGradleFiles/void _disabled_upgradeGradleFiles/g' "$UPGRADER"
-          echo "Patched upgrader"
       - name: Clean and Prepare
         run: |
           find android -type f -size 0 -delete
           find android/app/src/main/res -name "launcher_icon.*" -delete
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
+      - name: Generate Flutter build files
+        run: flutter build apk --config-only || true
       - name: Patch Gradle files
         run: |
           sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.3.2"/' android/settings.gradle.kts
           echo "android.newDsl=false" >> android/gradle.properties
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi
+      - name: Build APK via Gradle directly
+        run: |
+          cd android
+          ./gradlew assembleRelease --stacktrace
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-apks
-          path: build/app/outputs/flutter-apk/*.apk
+          path: android/app/build/outputs/apk/release/*.apk
