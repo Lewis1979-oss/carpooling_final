@@ -5,8 +5,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FLUTTER_GRADLE_UPGRADE: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,6 +20,12 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      - name: Disable Flutter Gradle upgrader
+        run: |
+          UPGRADER=$(find $FLUTTER_ROOT -name "gradle_utils.dart" | head -1)
+          echo "Found: $UPGRADER"
+          sed -i 's/void upgradeGradleFiles/void _disabled_upgradeGradleFiles/g' "$UPGRADER"
+          echo "Patched upgrader"
       - name: Clean and Prepare
         run: |
           find android -type f -size 0 -delete
@@ -32,13 +36,8 @@ jobs:
         run: |
           sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.3.2"/' android/settings.gradle.kts
           echo "android.newDsl=false" >> android/gradle.properties
-          cat android/gradle.properties
-          cat android/settings.gradle.kts
       - name: Build APK
-        env:
-          FLUTTER_GRADLE_UPGRADE: false
-        run: |
-          flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
