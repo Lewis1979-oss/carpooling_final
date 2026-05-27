@@ -5,6 +5,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      FLUTTER_GRADLE_UPGRADE: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,7 +32,11 @@ jobs:
         run: |
           sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.3.2"/' android/settings.gradle.kts
           echo "android.newDsl=false" >> android/gradle.properties
+          cat android/gradle.properties
+          cat android/settings.gradle.kts
       - name: Build APK
+        env:
+          FLUTTER_GRADLE_UPGRADE: false
         run: |
           flutter build apk --release --split-per-abi
       - name: Upload APK Artifacts
