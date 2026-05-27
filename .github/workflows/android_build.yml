@@ -16,7 +16,6 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.3'
           channel: 'stable'
           cache: true
       - name: Install dependencies
@@ -27,6 +26,10 @@ jobs:
           find android/app/src/main/res -name "launcher_icon.*" -delete
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
+      - name: Patch Gradle files
+        run: |
+          sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.3.2"/' android/settings.gradle.kts
+          echo "android.newDsl=false" >> android/gradle.properties
       - name: Build APK
         run: |
           flutter build apk --release --split-per-abi
