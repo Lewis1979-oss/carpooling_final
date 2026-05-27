@@ -26,12 +26,9 @@ jobs:
           find android/app/src/main/res -name "launcher_icon.*" -delete
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
-      - name: Patch gradle.properties
-        run: |
-          echo "android.newDsl=false" >> android/gradle.properties
       - name: Build APK
         run: |
-          # --split-per-abi reduces the size of individual APKs significantly
+          echo "android.newDsl=false" >> android/gradle.properties
           flutter build apk --release --split-per-abi
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
