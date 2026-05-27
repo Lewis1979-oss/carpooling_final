@@ -12,6 +12,7 @@
         "audioplayers",
         "cloud_firestore",
         "cupertino_icons",
+        "emoji_picker_flutter",
         "firebase_auth",
         "firebase_core",
         "firebase_messaging",
@@ -109,6 +110,17 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "emoji_picker_flutter",
+      "version": "4.4.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "plugin_platform_interface",
+        "shared_preferences",
+        "web"
       ]
     },
     {
@@ -665,6 +677,11 @@
       ]
     },
     {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
+    },
+    {
       "name": "synchronized",
       "version": "3.4.0",
       "dependencies": []
@@ -770,11 +787,6 @@
         "flutter",
         "permission_handler_platform_interface"
       ]
-    },
-    {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
     },
     {
       "name": "js",
