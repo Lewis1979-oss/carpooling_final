@@ -37,7 +37,7 @@ dependencies:
   flutter_compass: ^0.8.1
   sensors_plus: ^6.1.1
   share_plus: ^10.1.0
-  agora_rtc_engine: ^6.3.2
+  agora_rtc_engine: ^6.5.0
   permission_handler: ^11.3.1
   audioplayers: ^5.2.1
   audio_waveforms: ^1.0.5
