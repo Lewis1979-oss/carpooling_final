@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 buildscript {
     repositories {
@@ -7,7 +8,7 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.7.3")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
         classpath("com.google.gms:google-services:4.4.2")
     }
 }
@@ -24,7 +25,6 @@ rootProject.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(".
 subprojects {
     project.layout.buildDirectory.value(rootProject.layout.buildDirectory.get().dir(project.name))
     
-    // Force Java 17 for all modules and tasks
     afterEvaluate {
         if (project.hasProperty("android")) {
             val android = project.extensions.getByName("android") as com.android.build.gradle.BaseExtension
@@ -33,22 +33,18 @@ subprojects {
                 targetCompatibility = JavaVersion.VERSION_17
             }
         }
-        
-        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
-        }
-        
+
         tasks.withType<JavaCompile>().configureEach {
             sourceCompatibility = "17"
             targetCompatibility = "17"
         }
-    }
-}
 
-subprojects {
-    project.evaluationDependsOn(":app")
+        tasks.withType<KotlinCompile>().configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

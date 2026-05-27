@@ -272,11 +272,11 @@ class _LoginScreenState extends State<LoginScreen> with RouteAware, WidgetsBindi
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Carpool now. Save the future.',
+                        '',
                         style: TextStyle(color: Colors.white70, fontSize: 15),
                       ),
                       Text(
-                        'Better together.',
+                        '',
                         style: TextStyle(color: goldColor.withOpacity(0.8), fontSize: 15),
                       ),
                     ],

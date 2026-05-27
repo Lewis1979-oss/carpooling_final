@@ -42,7 +42,7 @@ dependencies:
   audioplayers: ^5.2.1
   audio_waveforms: ^1.0.5
   rxdart: ^0.27.7
-  emoji_picker_flutter: ^1.6.3
+  emoji_picker_flutter: ^4.4.0
 
 dev_dependencies:
   flutter_test:
