@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import '../models/safety_report_model.dart';
 import '../config/safety_config.dart';
 
@@ -16,20 +14,23 @@ class SafetyService {
     String? rideId, 
     String reporterId, 
     String reason, {
-    String? reportedUserId, // Track who is being reported
+    String? reportedUserId, 
     bool isSOS = false,
     File? audioFile,
+    Position? existingPosition, // Added to use location already fetched
   }) async {
     try {
-      // 1. Get Current Location
-      Position? position;
-      try {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
-      } catch (e) {
-        print("Could not get location for SOS: $e");
+      // 1. Use existing location or fetch new one if not provided
+      Position? position = existingPosition;
+      if (position == null) {
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 5),
+          );
+        } catch (e) {
+          print("Could not get location for report: $e");
+        }
       }
 
       // 2. Upload Audio if exists
@@ -40,7 +41,7 @@ class SafetyService {
         audioUrl = await ref.getDownloadURL();
       }
 
-      // 3. Create Report
+      // 3. Create Report in Firestore (This updates the Admin Dashboard)
       final report = SafetyReportModel(
         id: '',
         rideId: rideId,
@@ -55,52 +56,10 @@ class SafetyService {
       );
 
       await _db.collection('safety_reports').add(report.toMap());
+      print("SOS report successfully sent to Admin Dashboard.");
       
-      // 4. If it's an SOS, also send SMS to Admin via Twilio
-      if (isSOS) {
-        await sendAdminSOSViaTwilio(reporterId, reason, position);
-      }
     } catch (e) {
-      print("Error reporting issue: ${e.toString()}");
-    }
-  }
-
-  // New method to send SMS via Twilio API
-  Future<void> sendAdminSOSViaTwilio(String reporterId, String reason, Position? position) async {
-    try {
-      // Fetch reporter name for the message
-      final userDoc = await _db.collection('users').doc(reporterId).get();
-      final userName = userDoc.data()?['name'] ?? 'A User';
-      
-      String locText = "";
-      if (position != null) {
-        locText = "\nLocation: https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}";
-      }
-
-      final String message = "URGENT SOS: $userName needs help!\nReason: $reason$locText";
-
-      final String url = 'https://api.twilio.com/2010-04-01/Accounts/${SafetyConfig.twilioAccountSid}/Messages.json';
-      
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Basic ' + base64Encode(utf8.encode('${SafetyConfig.twilioAccountSid}:${SafetyConfig.twilioAuthToken}')),
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'From': SafetyConfig.twilioFromNumber,
-          'To': SafetyConfig.adminEmergencyNumber,
-          'Body': message,
-        },
-      );
-
-      if (response.statusCode == 201) {
-        print("Twilio SOS SMS sent successfully to Admin.");
-      } else {
-        print("Failed to send Twilio SMS: ${response.body}");
-      }
-    } catch (e) {
-      print("Error sending Twilio SOS: $e");
+      print("Error reporting issue to dashboard: ${e.toString()}");
     }
   }
 

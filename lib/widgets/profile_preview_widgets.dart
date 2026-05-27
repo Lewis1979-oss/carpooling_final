@@ -3,12 +3,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../services/theme_service.dart';
 import '../services/chat_service.dart';
 import '../services/voice_call_service.dart';
 import '../screens/chat_screen.dart';
 import '../screens/user_profile_view_screen.dart';
+import '../screens/voice_call_screen.dart';
 import 'call_choice_dialog.dart';
 
 class FullImageScreen extends StatelessWidget {
@@ -157,9 +159,30 @@ void showProfilePreview(
                           otherUser: user,
                           gold: gold,
                           isDark: isDark,
-                          onZedPoolCall: () async {
+                          onZedPoolCall: () {
                             final callService = Provider.of<VoiceCallService>(context, listen: false);
-                            await callService.makeCall(receiver: user);
+                            final currentUser = FirebaseAuth.instance.currentUser;
+                            if (currentUser == null) return;
+
+                            // 1. Close dialog immediately
+                            Navigator.pop(context);
+
+                            // 2. Start the call in background
+                            final channelId = callService.getChannelId(currentUser.uid, user.id);
+                            callService.makeCall(receiver: user);
+
+                            // 3. Navigate to call screen immediately
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => VoiceCallScreen(
+                                  caller: user,
+                                  channelId: channelId,
+                                  token: "",
+                                  isIncoming: false,
+                                ),
+                              ),
+                            );
                           },
                           onCellularCall: () async {
                             final Uri tel = Uri(scheme: 'tel', path: user.phone);

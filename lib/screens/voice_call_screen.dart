@@ -8,7 +8,7 @@ import '../services/voice_call_service.dart';
 import '../widgets/glass_widgets.dart';
 
 class VoiceCallScreen extends StatefulWidget {
-  final UserModel caller;
+  final UserModel caller; // The person on the other end
   final String channelId;
   final String token;
   final bool isIncoming;
@@ -35,20 +35,27 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
     
     if (widget.isIncoming) {
       callService.startRinging();
-      _listenForCallStatus();
     }
+    
+    // Listen for call status changes to auto-pop the screen when call ends
+    _listenForCallStatus();
   }
 
   void _listenForCallStatus() {
-    // Listen to the signaling document to detect if the caller hung up
     _statusSubscription = FirebaseFirestore.instance
         .collection('calls')
         .doc(widget.channelId)
         .snapshots()
         .listen((snapshot) {
-      if (!snapshot.exists || snapshot.data()?['status'] == 'ended' || snapshot.data()?['status'] == 'rejected') {
-        if (mounted) {
-          Provider.of<VoiceCallService>(context, listen: false).stopRinging();
+      if (mounted) {
+        final callService = Provider.of<VoiceCallService>(context, listen: false);
+        
+        // If document is gone or status is ended/rejected, close the screen
+        if (!snapshot.exists || 
+            snapshot.data()?['status'] == 'ended' || 
+            snapshot.data()?['status'] == 'rejected') {
+          
+          callService.stopRinging();
           Navigator.of(context).pop();
         }
       }
@@ -64,13 +71,13 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
   @override
   Widget build(BuildContext context) {
     final callService = Provider.of<VoiceCallService>(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final remoteUser = widget.isIncoming ? widget.caller : callService.remoteUser;
+    // Use widget.caller directly to avoid any "Unknown User" flicker
+    final remoteUser = widget.caller;
 
     return Scaffold(
       body: Stack(
         children: [
-          // Background Gradient/Blur
+          // Background Gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -84,7 +91,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
             ),
           ),
           
-          // User Info
           SafeArea(
             child: Column(
               children: [
@@ -98,10 +104,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
                     ),
                     child: CircleAvatar(
                       radius: 60,
-                      backgroundImage: remoteUser?.profilePic != null 
-                          ? NetworkImage(remoteUser!.profilePic!) 
+                      backgroundImage: remoteUser.profilePic != null 
+                          ? NetworkImage(remoteUser.profilePic!) 
                           : null,
-                      child: remoteUser?.profilePic == null 
+                      child: remoteUser.profilePic == null 
                           ? const Icon(Icons.person, size: 60) 
                           : null,
                     ),
@@ -109,7 +115,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  remoteUser?.name ?? "Unknown User",
+                  remoteUser.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -118,11 +124,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  widget.isIncoming && callService.callStatus == CallStatus.idle
-                      ? "Incoming Call..."
-                      : (callService.callStatus == CallStatus.dialling 
-                          ? "Dialling..." 
-                          : (callService.callStatus == CallStatus.ringing ? "Ringing..." : "Connected")),
+                  _getCallStatusText(callService),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 16,
@@ -203,6 +205,26 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
         ],
       ),
     );
+  }
+
+  String _getCallStatusText(VoiceCallService callService) {
+    if (widget.isIncoming && callService.callStatus == CallStatus.idle) {
+      return "Incoming Call...";
+    }
+    switch (callService.callStatus) {
+      case CallStatus.dialling:
+        return "Dialling...";
+      case CallStatus.ringing:
+        return "Ringing...";
+      case CallStatus.connected:
+        return "Connected";
+      case CallStatus.busy:
+        return "User Busy";
+      case CallStatus.ended:
+        return "Call Ended";
+      default:
+        return "Connecting...";
+    }
   }
 
   Widget _buildControlButton({

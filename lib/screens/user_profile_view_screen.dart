@@ -2,11 +2,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
 import '../services/admin_service.dart';
+import '../services/voice_call_service.dart';
+import '../services/chat_service.dart';
 import '../widgets/glass_widgets.dart';
+import '../widgets/call_choice_dialog.dart';
+import 'voice_call_screen.dart';
+import 'chat_screen.dart';
 
 class UserProfileViewScreen extends StatefulWidget {
   final String userId;
@@ -41,6 +47,46 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
     }
   }
 
+  void _initiateCall(UserModel user) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final callService = Provider.of<VoiceCallService>(context, listen: false);
+    
+    showDialog(
+      context: context,
+      builder: (context) => CallChoiceDialog(
+        otherUser: user,
+        gold: themeService.goldAccent,
+        isDark: themeService.isDarkMode,
+        onZedPoolCall: () {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser == null) return;
+
+          Navigator.pop(context);
+          final channelId = callService.getChannelId(currentUser.uid, user.id);
+          callService.makeCall(receiver: user);
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VoiceCallScreen(
+                caller: user,
+                channelId: channelId,
+                token: "",
+                isIncoming: false,
+              ),
+            ),
+          );
+        },
+        onCellularCall: () async {
+          if (user.phone != null) {
+            final Uri tel = Uri(scheme: 'tel', path: user.phone);
+            if (await canLaunchUrl(tel)) await launchUrl(tel);
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
@@ -72,8 +118,11 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                const SizedBox(height: 110), // Matched padding
+                const SizedBox(height: 110),
                 _buildHeader(userData, isDark, goldColor),
+                const SizedBox(height: 25),
+                if (_currentUserId != userData.id)
+                  _buildQuickActions(userData, goldColor, isDark),
                 const SizedBox(height: 25),
                 _buildStats(userData, goldColor, isDark),
                 const SizedBox(height: 30),
@@ -88,6 +137,49 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(UserModel userData, Color gold, bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildActionCircle(Icons.message_outlined, gold, () {
+          if (_currentUserId != null) {
+            final chatService = ChatService();
+            final chatId = chatService.getPrivateChatId(_currentUserId!, userData.id);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                  rideId: '',
+                  destinationName: '',
+                  privateChatId: chatId,
+                  otherUserName: userData.name,
+                  otherUserPhotoUrl: userData.profilePic,
+                ),
+              ),
+            );
+          }
+        }, isDark),
+        const SizedBox(width: 20),
+        _buildActionCircle(Icons.call_outlined, gold, () => _initiateCall(userData), isDark),
+      ],
+    );
+  }
+
+  Widget _buildActionCircle(IconData icon, Color color, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Icon(icon, color: color, size: 24),
       ),
     );
   }
@@ -220,7 +312,7 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
         ),
         const SizedBox(height: 10),
         _buildInfoTile(Icons.email, 'Email Address', userData.email, goldColor, isDark),
-        _buildInfoTile(Icons.phone, 'Phone Number', userData.phone ?? "N/A", goldColor, isDark),
+        _buildInfoTile(Icons.phone, 'Phone Number', (userData.hidePhoneNumber && _currentUserId != userData.id) ? "Hidden for Privacy" : (userData.phone ?? "N/A"), goldColor, isDark),
         _buildInfoTile(Icons.emergency, 'Emergency Contact', userData.emergencyContact ?? "N/A", goldColor, isDark),
         _buildInfoTile(Icons.history, 'Total Distance', '${userData.totalDistanceTravelled.toStringAsFixed(1)} KM', goldColor, isDark),
         _buildInfoTile(Icons.person_pin_circle, 'Account Type', userData.role.toUpperCase(), goldColor, isDark),
@@ -333,7 +425,7 @@ class _UserProfileViewScreenState extends State<UserProfileViewScreen> {
         child: Icon(icon, color: gold, size: 20),
       ),
       title: Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-      subtitle: Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+      subtitle: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
     );
   }
 }

@@ -140,7 +140,7 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         Text(
-                          'What would you like to do?',
+                          "WHAT'S YOUR TRAVEL PLAN TODAY?",
                           style: TextStyle(
                             color: goldColor, 
                             fontSize: 18 * themeService.fontSizeFactor, 

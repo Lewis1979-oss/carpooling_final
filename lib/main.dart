@@ -551,7 +551,7 @@ class _MainNavigationState extends State<MainNavigation> {
                 const Text('EMERGENCY SOS', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 15),
                 const Text(
-                  'This will alert Admin, notify your emergency contact with your location, and start an audio recording. Are you in danger?',
+                  'This will immediately alert the Admin with your live location. Are you in danger?',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 14),
                 ),
@@ -582,11 +582,11 @@ class _MainNavigationState extends State<MainNavigation> {
     );
 
     if (confirm == true) {
-      // 1. Trigger the comprehensive background SOS (Location + Audio + Contact Notification)
+      // 1. Trigger the background alerts (Admin SMS & Dashboard Dashboard)
       final safetyTrigger = Provider.of<SafetyTriggerService>(context, listen: false);
       safetyTrigger.triggerSOS('User manually triggered Global SOS from Dashboard');
 
-      // 2. Immediately initiate a phone call to emergency services
+      // 2. Immediately initiate a regular phone call to emergency services
       final Uri tel = Uri(scheme: 'tel', path: emergencyPhoneNumber);
       if (await canLaunchUrl(tel)) {
         await launchUrl(tel);

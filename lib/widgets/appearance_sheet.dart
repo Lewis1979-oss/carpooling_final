@@ -111,15 +111,20 @@ class AppearanceSheet extends StatelessWidget {
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
-            children: ['Montserrat', 'Roboto', 'Lato', 'OpenSans'].map((font) {
+            runSpacing: 10,
+            children: ['Montserrat', 'Roboto', 'Lato', 'OpenSans', 'CustomFont1'].map((font) {
               final isSelected = themeService.fontFamily == font;
+              final displayName = font == 'CustomFont1' ? 'Premium' : font;
               return ChoiceChip(
-                label: Text(font, style: TextStyle(fontFamily: font)),
+                label: Text(displayName, style: TextStyle(fontFamily: font)),
                 selected: isSelected,
                 onSelected: (val) => themeService.setFontFamily(font),
                 selectedColor: activeGold.withOpacity(0.2),
                 checkmarkColor: activeGold,
-                labelStyle: TextStyle(color: isSelected ? activeGold : Colors.grey),
+                labelStyle: TextStyle(
+                  color: isSelected ? activeGold : (isDark ? Colors.white70 : Colors.black87),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
               );
             }).toList(),
           ),

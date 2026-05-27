@@ -75,9 +75,9 @@ class MyRidesScreen extends StatelessWidget {
           ),
           centerTitle: false,
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(60),
+            preferredSize: const Size.fromHeight(53),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 0),
               child: GlassContainer(
                 padding: EdgeInsets.zero,
                 borderRadius: 25,
@@ -132,7 +132,7 @@ class MyRidesScreen extends StatelessWidget {
         });
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 10),
+          padding: const EdgeInsets.fromLTRB(24, 160, 24, 20), // Updated to 160px top padding as requested
           physics: const BouncingScrollPhysics(),
           itemCount: filteredRides.length,
           itemBuilder: (context, index) {

@@ -19,6 +19,7 @@ import '../widgets/call_choice_dialog.dart';
 import 'chat_screen.dart';
 import 'live_tracking_screen.dart';
 import 'user_profile_view_screen.dart';
+import 'voice_call_screen.dart';
 
 class RideDetailsScreen extends StatefulWidget {
   final RideModel ride;
@@ -113,15 +114,37 @@ I'm sharing my trip details with you for security purposes.
 
   void _initiateCall(UserModel user) {
     final themeService = Provider.of<ThemeService>(context, listen: false);
+    final callService = Provider.of<VoiceCallService>(context, listen: false);
+    
     showDialog(
       context: context,
       builder: (context) => CallChoiceDialog(
         otherUser: user,
         gold: themeService.goldAccent,
         isDark: themeService.isDarkMode,
-        onZedPoolCall: () async {
-          final callService = Provider.of<VoiceCallService>(context, listen: false);
-          await callService.makeCall(receiver: user);
+        onZedPoolCall: () {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser == null) return;
+
+          // 1. Close the dialog immediately
+          Navigator.pop(context);
+
+          // 2. Navigate to call screen immediately
+          final channelId = callService.getChannelId(currentUser.uid, user.id);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VoiceCallScreen(
+                caller: user,
+                channelId: channelId,
+                token: "",
+                isIncoming: false,
+              ),
+            ),
+          );
+
+          // 3. Initiate call in background
+          callService.makeCall(receiver: user);
         },
         onCellularCall: () async {
           if (user.phone != null) {

@@ -75,3 +75,9 @@ flutter:
     - assets/videos/
     - assets/images/
     - assets/sounds/
+    - assets/fonts/
+
+  fonts:
+    - family: CustomFont1
+      fonts:
+        - asset: assets/fonts/font1.ttf

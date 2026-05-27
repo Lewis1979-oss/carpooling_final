@@ -77,8 +77,7 @@ class GlassContainer extends StatelessWidget {
               ),
             ),
 
-            // 2. The Background Image (Placed ON TOP of the glass, but BEHIND content)
-            // This ensures it is "clearly visible" as requested.
+            // 2. The Background Image
             if (backgroundImage != null)
               Positioned.fill(
                 child: Opacity(
@@ -91,9 +90,10 @@ class GlassContainer extends StatelessWidget {
                 ),
               ),
             
-            // 3. The Content (Buttons, Text, etc.)
+            // 3. The Content
             Container(
-              width: double.infinity,
+              width: width ?? double.infinity, // Ensure it tries to fill width if not specified
+              height: height,
               padding: padding ?? const EdgeInsets.all(24),
               child: child,
             ),

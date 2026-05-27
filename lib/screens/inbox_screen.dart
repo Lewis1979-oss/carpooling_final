@@ -198,12 +198,8 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Widget _buildHeader(bool isDark, Color gold, Color bodyColor) {
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    final appBarHeight = kToolbarHeight;
-    final topPadding = statusBarHeight + appBarHeight + 4.0; // 4px breathing room
-
     return Container(
-      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -224,24 +220,30 @@ class _InboxScreenState extends State<InboxScreen> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 20), // Increased spacing
           Row(
             children: [
               Expanded(
                 child: GlassContainer(
                   isDark: isDark,
+                  height: 50, // Fixed height to prevent collapse
                   borderRadius: 15,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   containerOpacity: 0.1,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: "Search messages...",
-                      hintStyle: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 14),
-                      border: InputBorder.none,
-                      icon: Icon(Icons.search, color: Colors.grey.withOpacity(0.7), size: 20),
+                  child: Center(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                      style: const TextStyle(fontSize: 14),
+                      textAlignVertical: TextAlignVertical.center,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: "Search messages...",
+                        hintStyle: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 14),
+                        border: InputBorder.none,
+                        icon: Icon(Icons.search, color: Colors.grey.withOpacity(0.7), size: 20),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
                 ),
@@ -251,10 +253,14 @@ class _InboxScreenState extends State<InboxScreen> {
                 onTap: () => _showFilterSheet(context, gold, isDark),
                 child: GlassContainer(
                   isDark: isDark,
+                  width: 50, // Fixed width
+                  height: 50, // Fixed height
                   borderRadius: 15,
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.zero,
                   containerOpacity: 0.1,
-                  child: Icon(Icons.tune, color: gold, size: 20),
+                  child: Center(
+                    child: Icon(Icons.tune, color: gold, size: 20),
+                  ),
                 ),
               ),
             ],
