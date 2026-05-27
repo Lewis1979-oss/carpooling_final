@@ -26,18 +26,10 @@ jobs:
           find android/app/src/main/res -name "launcher_icon.*" -delete
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
-      - name: Generate Flutter build files
-        run: flutter build apk --config-only || true
-      - name: Patch Gradle files
-        run: |
-          sed -i 's/id("com.android.application") version "[^"]*"/id("com.android.application") version "8.3.2"/' android/settings.gradle.kts
-          echo "android.newDsl=false" >> android/gradle.properties
-      - name: Build APK via Gradle directly
-        run: |
-          cd android
-          ./gradlew assembleRelease --stacktrace
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-apks
-          path: android/app/build/outputs/apk/release/*.apk
+          path: build/app/outputs/flutter-apk/*.apk
