@@ -308,7 +308,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       recentsLimit: 28,
                       noRecents: const Text('No Recents', style: TextStyle(fontSize: 20, color: Colors.black26), textAlign: TextAlign.center),
                       loadingIndicator: const SizedBox.shrink(),
-                      tabBarIndicatorSize: TabBarIndicatorSize.label,
                       categoryIcons: CategoryIcons(),
                       buttonMode: ButtonMode.MATERIAL,
                     ),
