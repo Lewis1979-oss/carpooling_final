@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.carpool_final"
     
-    compileSdk = 36
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -31,10 +31,7 @@ android {
 
     buildTypes {
         release {
-            // Use debug signing for now as per original configuration
             signingConfig = signingConfigs.getByName("debug")
-            
-            // Optimization settings
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
